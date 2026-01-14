@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "vfs.h"
 
 #define BUF_SIZE 128
@@ -29,7 +30,7 @@ void handle_arrow_down(char *buf) {
 }
 
 void handle_tab_autocomplete(char *buf) {
-    // We are going to assume the user is trying to autocomplete a filename
+    // Simulate autocompletion for file names (VFS)
     char *cmd = strtok(buf, " ");
     if (cmd && strcmp(cmd, "echo") == 0) {
         // Look for files that match the current text after "echo "
@@ -45,6 +46,43 @@ void handle_tab_autocomplete(char *buf) {
         }
     }
 }
+
+// WASI stuff
+
+// #include <wasm.h>
+// #include <wasi.h>
+
+#include <unistd.h>
+#include <limits.h>
+
+#define APPS_DIR "/apps/"
+
+
+
+
+void run_wasi_app(const char *app_name) {
+char path[PATH_MAX];
+snprintf(path, sizeof(path), "%s%s.wasm", APPS_DIR, app_name);
+FILE *f = fopen(path, "rb");
+    if (!f) {
+        perror(path); // show OS-level error
+        return;
+    }
+
+    fseek(f, 0, SEEK_END);
+    size_t size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    uint8_t *bytes = malloc(size);
+    fread(bytes, 1, size, f);
+    fclose(f);
+
+    printf("Loaded %zu bytes for app: %s\n", size, app_name);
+
+    free(bytes);
+}
+
+
 
 int main() {
     char buf[BUF_SIZE];
@@ -62,7 +100,7 @@ int main() {
 
         buf[n - 1] = '\0';  // Remove newline character
 
-        // Handle arrow key commands (up and down arrow)
+        // Simulate Arrow Key Navigation (history navigation)
         if (n == 1 && buf[0] == 27) {  // Escape sequence starts with 27
             char arrow_buf[3];
             int arrow_n = read(0, arrow_buf, 3);
@@ -82,7 +120,7 @@ int main() {
             handle_tab_autocomplete(buf);
         }
 
-        // If the user presses Enter, save command to history
+        // Save the command to history when Enter is pressed
         if (n == 1 && buf[0] == '\n') {
             // Save the command to history
             if (history_index < HISTORY_SIZE) {
@@ -131,7 +169,7 @@ int main() {
             }
         }
 
-        // Handle command parsing (ls, touch, cat, etc.)
+        // Handle other commands (ls, touch, cat, etc.)
         char *cmd = strtok(buf, " ");
         char *arg = strtok(NULL, " ");
         if (!cmd) continue;
@@ -147,6 +185,8 @@ int main() {
             } else {
                 write(1, "File not found\n", 15);
             }
+        } else if (strcmp(cmd, "run") == 0 && arg) {
+            run_wasi_app(arg);
         } else {
             write(1, "Unknown command\n", 16);
         }
